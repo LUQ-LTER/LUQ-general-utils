@@ -48,20 +48,6 @@ def find_partial_references(text_with_pages):
     return partial_references
 
 # Function to match partial references to full references
-def match_references(partial_refs, full_refs):
-    matched_refs = []
-    unmatched_refs = []  # List to keep track of unmatched references
-    for partial_ref, page_number in partial_refs:
-        matched = False  # Flag to indicate if a match was found
-        year = re.search(r'\d{4}', partial_ref).group()
-        for full_ref in full_refs:
-            if year in full_ref and re.search(re.escape(partial_ref.split(" et al.")[0]), full_ref):
-                matched_refs.append((partial_ref, full_ref, page_number))
-                matched = True
-                break
-        if not matched:
-            unmatched_refs.append((partial_ref, page_number))  # Add to unmatched if no match found
-    return matched_refs, unmatched_refs
 
 def find_name_and_name_year_references(text_with_pages):
     name_and_name_references = []
@@ -77,21 +63,21 @@ def find_name_and_name_year_references(text_with_pages):
 partial_references = find_partial_references(text_with_pages_noref)
 
 # Match partial references to full references
-matched_references, unmatched_references = match_references(partial_references, full_references_list)
-df_matched_refs = pd.DataFrame(matched_references, columns=['Partial Reference', 'Full Reference', 'Page Number'])
-df_unmatched_refs = pd.DataFrame(unmatched_references, columns=['Partial Reference',  'Page Number'])
-
-# Create a DataFrame for the matched references
-df_matched_refs = pd.DataFrame(matched_references, columns=['Partial Reference', 'Full Reference', 'Page Number'])
-
-output_csv_path_unmatched = './unmatched_references7.csv'
-# df_unmatched_refs.to_csv(output_csv_path_unmatched, index=False, encoding='utf-8-sig')
-
-# Save the DataFrame to a CSV file
-output_csv_path = './matched_references7.csv'
-# df_matched_refs.to_csv(output_csv_path, index=False)
-
-output_csv_path, df_matched_refs.head()
+# matched_references, unmatched_references = match_references(partial_references, full_references_list)
+# df_matched_refs = pd.DataFrame(matched_references, columns=['Partial Reference', 'Full Reference', 'Page Number'])
+# df_unmatched_refs = pd.DataFrame(unmatched_references, columns=['Partial Reference',  'Page Number'])
+#
+# # Create a DataFrame for the matched references
+# df_matched_refs = pd.DataFrame(matched_references, columns=['Partial Reference', 'Full Reference', 'Page Number'])
+#
+# output_csv_path_unmatched = './unmatched_references7.csv'
+# # df_unmatched_refs.to_csv(output_csv_path_unmatched, index=False, encoding='utf-8-sig')
+#
+# # Save the DataFrame to a CSV file
+# output_csv_path = './matched_references7.csv'
+# # df_matched_refs.to_csv(output_csv_path, index=False)
+#
+# output_csv_path, df_matched_refs.head()
 
 # Updated function to find partial references, considering multiple publications listed consecutively
 def find_partial_references_updated(text_with_pages):
@@ -125,26 +111,6 @@ def match_references_updated(partial_refs, full_refs):
     return matched_refs_updated, unmatched_refs_updated
 
 
-def generate_correct_pattern(partial_ref):
-    # Split the reference by spaces, assuming " & " as the connector and the last part as the year
-    parts = partial_ref.split(' ')
-    year = parts[-1]  # The year is the last part
-    authors = parts[:-1]  # Exclude the year for the authors part
-
-    # Remove "&" or "and" if present; this assumes "&" is used as a connector
-    if '&' in authors:
-        authors.remove('&')
-
-    # Escape individual components for authors and year
-    escaped_authors = [re.escape(author) for author in authors]
-    escaped_year = re.escape(year)
-
-    # Reassemble the pattern, allowing for flexibility in whitespace
-    # Since "&" or "and" is ignored in the full reference, we don't need to account for it in the pattern
-    pattern = r'\s+'.join(escaped_authors) + r'\s+' + escaped_year
-
-    return pattern
-
 
 def generate_simplified_pattern(partial_ref):
     # Extract the year and author last names from the partial reference
@@ -175,20 +141,7 @@ def flexible_match_references(partial_refs, full_refs):
             unmatched_refs.append((partial_ref, page_number))  # Add to unmatched if no match found
     return matched_refs, unmatched_refs
 
-partial_ref = "Comita & Engelbrecht 2009"
-pattern = generate_simplified_pattern(partial_ref)
-print(f"Generated pattern: {pattern}")
 
-# Compile the regex pattern with the IGNORECASE flag to make the search case-insensitive
-regex = re.compile(pattern, re.IGNORECASE)
-
-# Example test string, assuming a format in the full reference
-test_string = "Comita, L. S. and B. M. Engelbrecht. 2009. Seasonal and spatial variation in water availability drive habitat associations in a tropical forest. Ecology 90:2755-2765."
-match = regex.search(test_string)
-if match:
-    print("Match found:", match.group())
-else:
-    print("No match")
 
 # Find updated partial references in the no-reference document
 partial_references_updated = find_partial_references_updated(text_with_pages_noref)
