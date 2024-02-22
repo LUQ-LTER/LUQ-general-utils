@@ -59,6 +59,16 @@ def match_references(partial_refs, full_refs):
                 break
     return matched_refs
 
+def find_name_and_name_year_references(text_with_pages):
+    name_and_name_references = []
+    # Specific regex pattern for "Name & 2nd Name Year"
+    pattern = re.compile(r'\b([A-Za-z]+ & [A-Za-z]+ \d{4})\b')
+    for page_number, text in enumerate(text_with_pages, start=1):
+        matches = pattern.findall(text)
+        for match in matches:
+            name_and_name_references.append((match, page_number))
+    return name_and_name_references
+
 # Find partial references in the no-reference document
 partial_references = find_partial_references(text_with_pages_noref)
 
@@ -101,6 +111,52 @@ def match_references_updated(partial_refs, full_refs):
                 break  # Break after the first match to avoid duplicate entries for the same partial ref
     return matched_refs_updated
 
+
+
+def generate_simplified_pattern(partial_ref):
+    # Extract the year and author last names from the partial reference
+    year = re.search(r'\d{4}', partial_ref).group()
+    authors = re.split(r' & ', partial_ref[:-5])  # Remove the year and split the authors
+
+    # Escape and prepare each author's last name for flexible matching
+    pattern_authors = [re.escape(author.split(' ')[-1]) for author in authors]  # Focus on last names
+
+    # Construct a regex pattern that allows for any content between the authors' last names and the year
+    pattern = r'.*?'.join(pattern_authors) + r'.*?' + re.escape(year)
+
+    return pattern
+
+
+def flexible_match_references(partial_refs, full_refs):
+    matched_refs = []
+    for partial_ref, page_number in partial_refs:
+        # Convert the partial reference into a more flexible regex pattern
+        # This includes replacing "&" with "and", allowing for middle initials, and more
+        # pattern = re.escape(partial_ref).replace("\\ ", "\\s*").replace("&", "(and|&)").replace("\\.", "\\.?") + "\s*\\d{4}"
+        pattern = generate_simplified_pattern(partial_ref)
+        regex = re.compile(pattern, re.IGNORECASE)
+
+        for full_ref in full_refs:
+            if regex.search(full_ref):
+                matched_refs.append((partial_ref, full_ref, page_number))
+                break  # Assuming one match per partial reference is sufficient
+    return matched_refs
+
+partial_ref = "Comita & Engelbrecht 2009"
+pattern = generate_simplified_pattern(partial_ref)
+print(f"Generated pattern: {pattern}")
+
+# Compile the regex pattern with the IGNORECASE flag to make the search case-insensitive
+regex = re.compile(pattern, re.IGNORECASE)
+
+# Example test string, assuming a format in the full reference
+test_string = "Comita, L. S. and B. M. Engelbrecht. 2009. Seasonal and spatial variation in water availability drive habitat associations in a tropical forest. Ecology 90:2755-2765."
+match = regex.search(test_string)
+if match:
+    print("Match found:", match.group())
+else:
+    print("No match")
+
 # Find updated partial references in the no-reference document
 partial_references_updated = find_partial_references_updated(text_with_pages_noref)
 
@@ -115,3 +171,29 @@ output_csv_path_updated = './matched_references_updated7.csv'
 df_matched_refs_updated.to_csv(output_csv_path_updated, index=False)
 
 output_csv_path_updated, df_matched_refs_updated.head()
+
+
+
+# Extracting "Name & 2nd Name Year" references specifically
+name_and_name_references = find_name_and_name_year_references(text_with_pages_noref)
+
+print(name_and_name_references)
+
+# Matching these specific references to the full references list
+# matched_name_and_name_references = match_references_comprehensive(name_and_name_references, full_references_list)
+matched_name_and_name_references = flexible_match_references(name_and_name_references, full_references_list)
+
+print("DONE")
+
+
+
+# Create and save a DataFrame for these specific matches
+df_matched_name_and_name = pd.DataFrame(matched_name_and_name_references, columns=['Partial Reference', 'Full Reference', 'Page Number'])
+
+# df_matched = pd.concat(df_matched_refs_updated, df_matched_name_and_name, ignore_index=True)
+df_matched = pd.concat([df_matched_refs_updated, df_matched_name_and_name], ignore_index=True)
+
+print(df_matched)
+
+output_csv_path_name_and_name = './matched_name_and_name_references7.csv'
+df_matched.to_csv(output_csv_path_name_and_name, index=False)
