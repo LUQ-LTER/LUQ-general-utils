@@ -22,9 +22,22 @@ def extract_text_and_page_numbers(doc):
 # Extract references and their text from the references document
 def extract_full_references(doc):
     full_references = []
+    current_ref = ""
     for paragraph in doc.paragraphs:
-        full_references.append(paragraph.text)
+        # Check if the paragraph likely starts a new reference
+        # This regex looks for patterns like "Name, A. and Name, B. YEAR" at the start of a paragraph
+        if re.match(r'\b[A-Z][a-z]+, [A-Z]\.(\s+and\s+[A-Z][a-z]+, [A-Z]\.)?\s+\d{4}', paragraph.text):
+            if current_ref:  # If there's an ongoing reference, save it before starting a new one
+                full_references.append(current_ref.strip())
+                current_ref = paragraph.text  # Start a new reference
+            else:
+                current_ref = paragraph.text  # Start the first reference
+        else:
+            current_ref += " " + paragraph.text  # Continue the current reference
+    if current_ref:  # Don't forget to add the last reference
+        full_references.append(current_ref.strip())
     return full_references
+
 
 # Extract text with identified page numbers
 text_with_pages_noref = extract_text_and_page_numbers(doc_noref)
@@ -204,3 +217,36 @@ print(df_matched)
 
 output_csv_path_name_and_name = './matched_references7.csv'
 df_matched.to_csv(output_csv_path_name_and_name, index=False, encoding='utf-8-sig')
+
+def find_unmatched_full_references(matched_refs, full_refs):
+    matched_full_refs_set = set()
+    for item in matched_refs:
+        if len(item) == 3:  # Ensure the item is a 3-tuple
+            _, full_ref, _ = item
+            matched_full_refs_set.add(full_ref)
+        else:
+            print(f"Unexpected structure: {item}")  # Debug: Identify any unexpected item structure
+
+    unmatched_full_refs = [full_ref for full_ref in full_refs if full_ref not in matched_full_refs_set]
+    return unmatched_full_refs
+
+# Assuming matched_references is a combined list of all matched references from your functions
+# and full_references_list contains all full references from the document
+# print(df_matched[:5])
+print(df_matched[:].values)
+matched_refs = list(df_matched.itertuples(index=False, name=None))
+
+unmatched_full_references = find_unmatched_full_references(
+    matched_refs, full_references_list)
+
+# Convert unmatched full references to a DataFrame
+df_unmatched_full_refs = pd.DataFrame(unmatched_full_references, columns=['Full Reference'])
+df_unmatched_full_refs['Full Reference'] = df_unmatched_full_refs['Full Reference'].str.replace('\r', '', regex=False)
+df_unmatched_full_refs['Full Reference'] = df_unmatched_full_refs['Full Reference'].str.replace('\n', '', regex=False)
+df_unmatched_full_refs['Full Reference'] = df_unmatched_full_refs['Full Reference'].str.strip()
+# print(df_unmatched_full_refs[:].values)
+# Save the DataFrame to a CSV file
+output_csv_path_unmatched_full_refs = './unmatched_full_references7.csv'
+df_unmatched_full_refs.to_csv(output_csv_path_unmatched_full_refs, index=False, encoding='utf-8-sig')
+
+# This saves a list of full references that didn't match any partial reference
