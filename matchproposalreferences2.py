@@ -22,6 +22,14 @@ def extract_text_and_page_numbers(doc):
 # Extract references and their text from the references document
 def extract_full_references(doc):
     full_references = []
+    for paragraph in doc.paragraphs:
+        full_references.append(paragraph.text)
+    return full_references
+
+
+# Extract references and their text from the references document
+def extract_full_referencesv2(doc):
+    full_references = []
     current_ref = ""
     for paragraph in doc.paragraphs:
         # Check if the paragraph likely starts a new reference
@@ -37,11 +45,10 @@ def extract_full_references(doc):
     if current_ref:  # Don't forget to add the last reference
         full_references.append(current_ref.strip())
     return full_references
-
-
 # Extract text with identified page numbers
 text_with_pages_noref = extract_text_and_page_numbers(doc_noref)
 full_references_list = extract_full_references(doc_ref)
+full_references_listv2 = extract_full_referencesv2(doc_ref)
 
 # Check the first few entries to verify
 text_with_pages_noref[:2], full_references_list[:2]
@@ -113,16 +120,21 @@ def match_references_updated(partial_refs, full_refs):
     for partial_ref, page_number in partial_refs:
         matched = False  # Flag to indicate if a match was found
         year = re.search(r'\d{4}', partial_ref).group()
-        # Search for a match in the full references
+        first_author = partial_ref.split(" et al.")[0]  # Extract the first author from the partial reference
+
+        # Modify the regex to ensure the first author appears at the start of the reference
+        # Adjust the regex pattern as necessary based on the expected format of your full references
         for full_ref in full_refs:
-            if year in full_ref and re.search(re.escape(partial_ref.split(" et al.")[0]), full_ref):
+            # This regex checks that the first author is at the start of the full reference and is followed by the year
+            if re.match(re.escape(first_author) + r'.*?\b' + re.escape(year), full_ref):
                 matched_refs_updated.append((partial_ref, full_ref, page_number))
                 matched = True
-                break  # Break after the first match to avoid duplicate entries for the same partial ref
+                break  # Found a match
+
         if not matched:
             unmatched_refs_updated.append((partial_ref, page_number))  # Add to unmatched if no match found
-    return matched_refs_updated, unmatched_refs_updated
 
+    return matched_refs_updated, unmatched_refs_updated
 
 
 def generate_simplified_pattern(partial_ref):
@@ -237,7 +249,7 @@ print(df_matched[:].values)
 matched_refs = list(df_matched.itertuples(index=False, name=None))
 
 unmatched_full_references = find_unmatched_full_references(
-    matched_refs, full_references_list)
+    matched_refs, full_references_listv2)
 
 # Convert unmatched full references to a DataFrame
 df_unmatched_full_refs = pd.DataFrame(unmatched_full_references, columns=['Full Reference'])
